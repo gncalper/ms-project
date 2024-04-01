@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  labels:
+    name: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: user-service
+  template:
+    metadata:
+      name: user-service
+      labels:
+        name: user-service
+    spec:
+      securityContext:
+        runAsUser: 1000
+      containers:
+        - image: gncalper/user-server:tag
+          name: user-service
+          ports:
+            - containerPort: 8771
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /user-api/actuator/health/readiness
+              port: 8771
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /user-api/actuator/health/liveness
+              port: 8771
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: user-configmap
+      initContainers:
+        - name: init-config
+          image: busybox
+          command: ['sh', '-c', 'until nc -z config-service:8888; do echo waiting for config-server; sleep 2; done;']

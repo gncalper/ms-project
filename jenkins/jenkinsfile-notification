@@ -1,0 +1,46 @@
+pipeline{
+
+	agent any
+
+	environment {
+		DOCKERHUB_CREDENTIALS=credentials('gnc-dockerhub')
+	}
+
+		stage('Build') {
+
+			steps {
+				sh "docker build -t 'gncalper/notification-service:${BUILD_NUMBER}' ./notification-service "
+			}
+		}
+
+		stage('Login') {
+
+			steps {
+				sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+			}
+		}
+
+		stage('Push') {
+
+			steps {
+				sh "docker push gncalper/notification-service:${BUILD_NUMBER}"
+			}
+		}
+
+		stage('Kube Deploy') {
+            steps {
+                sh "sed -i 's/tag/${BUILD_NUMBER}/g' ./k8s/notification-service/deployment.yml"
+                sh "kubectl apply -f ./k8s/notification-service/"
+            }
+		}
+	}
+
+	post {
+		always {
+			sh 'docker logout'
+		    sh "docker image prune -af"
+            sh "docker builder prune -af"
+		}
+	}
+
+}

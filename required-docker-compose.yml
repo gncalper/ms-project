@@ -1,0 +1,88 @@
+version: '3.1'
+
+services:
+
+  postgres:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgressecret
+    ports:
+      - "5432:5432"
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.3.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "22181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.0.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  config-server:
+    container_name: config-server
+    build:
+      context: ./config-server/
+      dockerfile: Dockerfile
+    ports:
+      - 8888:8888
+
+  discovery-server:
+    container_name: discovery-server
+    build:
+      context: ./discovery-server/
+      dockerfile: Dockerfile
+    ports:
+      - 8761:8761
+    depends_on:
+      - config-server
+
+  gateway-service:
+    container_name: gateway-service
+    build:
+      context: ./gateway-server/
+      dockerfile: Dockerfile
+    ports:
+      - 8088:8088
+    depends_on:
+      - config-server
+      - discovery-server
+
+  notification-service:
+    container_name: notification-service
+    build:
+      context: ./notification-service/
+      dockerfile: Dockerfile
+    ports:
+      - 8772:8772
+    depends_on:
+      - config-server
+      - discovery-server
+      - gateway-service
+
+  user-service:
+    container_name: user-service
+    build:
+      context: ./user-service/
+      dockerfile: Dockerfile
+    ports:
+      - 8771:8771
+    depends_on:
+      - config-server
+      - discovery-server
+      - gateway-service
+

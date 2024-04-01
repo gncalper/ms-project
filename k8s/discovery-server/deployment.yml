@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-service
+  labels:
+    name: discovery-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: discovery-service
+  template:
+    metadata:
+      name: discovery-service
+      labels:
+        name: discovery-service
+    spec:
+      securityContext:
+        runAsUser: 1000
+      containers:
+        - image: gncalper/discovery-server:tag
+          name: discovery-service
+          ports:
+            - containerPort: 8761
+          securityContext:
+            allowPrivilegeEscalation: false
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8761
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8761
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: discovery-configmap
+      initContainers:
+        - name: init-config
+          image: busybox
+          command: ['sh', '-c', 'until nc -z config-service:8888; do echo waiting for config-server; sleep 2; done;']

@@ -1,0 +1,46 @@
+pipeline{
+
+	agent any
+
+	environment {
+		DOCKERHUB_CREDENTIALS=credentials('gnc-dockerhub')
+	}
+
+		stage('Build') {
+
+			steps {
+				sh "docker build -t 'gncalper/config-server:${BUILD_NUMBER}' ./config-server "
+			}
+		}
+
+		stage('Login') {
+
+			steps {
+				sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+			}
+		}
+
+		stage('Push') {
+
+			steps {
+				sh "docker push gncalper/config-server:${BUILD_NUMBER}"
+			}
+		}
+
+		stage('Kube Deploy') {
+            steps {
+                sh "sed -i 's/tag/${BUILD_NUMBER}/g' ./k8s/config-server/deployment.yml"
+                sh "kubectl apply -f ./k8s/config-server/"
+            }
+		}
+	}
+
+	post {
+		always {
+			sh 'docker logout'
+		    sh "docker image prune -af"
+            sh "docker builder prune -af"
+		}
+	}
+
+}

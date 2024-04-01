@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discovery-configmap
+data:
+  CONFIG_SERVER_URL: http://config-service:8888
+  DİSCOVERY_SERVER_URL: discovery-service:8761

@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  labels:
+    name: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: notification-service
+  template:
+    metadata:
+      name: notification-service
+      labels:
+        name: notification-service
+    spec:
+      securityContext:
+        runAsUser: 1000
+      containers:
+        - image: gncalper/notification-server:tag
+          name: notification-service
+          ports:
+            - containerPort: 8772
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
+          securityContext:
+            allowPrivilegeEscalation: false
+          readinessProbe:
+            httpGet:
+              path: /mail-api/actuator/health/readiness
+              port: 8772
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /mail-api/actuator/health/liveness
+              port: 8772
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          envFrom:
+            - configMapRef:
+                name: notification-configmap
+      initContainers:
+        - name: init-config
+          image: busybox
+          command: ['sh', '-c', 'until nc -z config-service:8888; do echo waiting for config-server; sleep 2; done;']
