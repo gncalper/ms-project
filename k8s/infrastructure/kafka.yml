@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  labels:
+    name: kafka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: kafka
+  template:
+    metadata:
+      name: kafka
+      labels:
+        name: kafka
+    spec:
+      containers:
+        - image: confluentinc/cp-kafka:7.0.1
+          name: kafka
+          envFrom:
+            - configMapRef:
+                name: kafka-configmap
+          ports:
+            - containerPort: 9092
+      initContainers:
+        - name: init-kafka
+          image: busybox
+          command: ['sh', '-c', 'until nc -z zookeeper:2181; do echo waiting for zookeeper:2181; sleep 2; done;']
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-service
+  labels:
+    name: kafka-service
+spec:
+  ports:
+    - port: 9092
+      targetPort: 9092
+  selector:
+    name: kafka
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-configmap
+data:
+  KAFKA_BROKER_ID: "1"
+  KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+  KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-service:9092,PLAINTEXT_INTERNAL://localhost:29092
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
